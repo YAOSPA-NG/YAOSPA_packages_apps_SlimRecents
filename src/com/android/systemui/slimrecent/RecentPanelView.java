@@ -283,7 +283,6 @@ public class RecentPanelView {
             boolean screenPinningEnabled = mIsScreenPinningEnabled;
             expanded = isExpanded;
             expandVisible = !isTopTask;
-            killAppIcon = isTopTask && !screenPinningEnabled;
             customIcon = isTopTask && screenPinningEnabled;
             custom = mContext.getDrawable(R.drawable.ic_slimrec_pin_app);
             customClickListener = new View.OnClickListener() {

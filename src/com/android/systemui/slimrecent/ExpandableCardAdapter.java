@@ -93,13 +93,12 @@ public class ExpandableCardAdapter extends RecyclerView.Adapter<ExpandableCardAd
                     notifyItemChanged(position);
                 }
             });
-        } else if (card.killAppIcon) {
+        } else {
             holder.expandButton.setImageResource(R.drawable.ic_killapp);
             holder.expandButton.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    Toast mWarningToast = Toast.makeText(mContext, R.string.recents_killapp_warning,
-                            Toast.LENGTH_SHORT);
+                    Toast mWarningToast = Toast.makeText(mContext, R.string.recents_killapp_warning, Toast.LENGTH_SHORT);
                     mWarningToast.show();
                 }
             });
@@ -127,9 +126,7 @@ public class ExpandableCardAdapter extends RecyclerView.Adapter<ExpandableCardAd
                 color = mContext.getColor(R.color.recents_task_bar_dark_text_color);
             }
             holder.appName.setTextColor(color);
-            if (card.killAppIcon) {
-                holder.expandButton.setColorFilter(null);
-            } else {
+            if (card.expandVisible || card.customIcon) {
                 holder.expandButton.setColorFilter(color, PorterDuff.Mode.MULTIPLY);
             }
         }
@@ -323,7 +320,6 @@ public class ExpandableCardAdapter extends RecyclerView.Adapter<ExpandableCardAd
         boolean optionsShown = false;
         boolean expandVisible = true;
         boolean customIcon = false;
-        boolean killAppIcon = false;
         boolean favorite = false;
         float cornerRadius;
         View.OnLongClickListener appIconLongClickListener;
@@ -344,6 +340,16 @@ public class ExpandableCardAdapter extends RecyclerView.Adapter<ExpandableCardAd
 
         public void clearOptions() {
             mOptions.clear();
+        }
+
+        public void setCardClickListener(View.OnClickListener listener) {
+            cardClickListener = listener;
+        }
+
+        public void setCustomClick(Drawable icon, View.OnClickListener listener) {
+            customIcon = true;
+            custom = icon;
+            customClickListener = listener;
         }
     }
 
