@@ -995,4 +995,5 @@ public class RecentController implements RecentPanelView.OnExitListener,
             return false;
         }
     }
+
 }
