@@ -105,6 +105,7 @@ public class RecentController implements RecentPanelView.OnExitListener,
     private boolean mIsShowing;
     private boolean mIsToggled;
     private boolean mIsPreloaded;
+    private boolean mRecentLastApp;
 
     protected long mLastToggleTime;
 
@@ -611,6 +612,9 @@ public class RecentController implements RecentPanelView.OnExitListener,
             resolver.registerContentObserver(Settings.System.getUriFor(
                     Settings.System.SLIM_RECENTS_CORNER_RADIUS),
                     false, this, UserHandle.USER_ALL);
+            resolver.registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.SLIM_RECENTS_LAST_APP),
+                    false, this, UserHandle.USER_ALL);
             update();
         }
 
@@ -678,6 +682,9 @@ public class RecentController implements RecentPanelView.OnExitListener,
                 mRecentPanelView.setCornerRadius(Settings.System.getIntForUser(
                         resolver, Settings.System.SLIM_RECENTS_CORNER_RADIUS, 1,
                         UserHandle.USER_CURRENT) == 1 ? cornerRadius : 0f);
+                mRecentLastApp = Settings.System.getIntForUser(
+                        resolver, Settings.System.SLIM_RECENTS_LAST_APP, 1,
+                        UserHandle.USER_CURRENT) == 1 ? true : false;
             }
 
             mRecentContent.setElevation(50);
@@ -934,7 +941,7 @@ public class RecentController implements RecentPanelView.OnExitListener,
                 (ActivityManager) mContext.getSystemService(Context.ACTIVITY_SERVICE);
         ActivityManager.RunningTaskInfo lastTask = getLastTask(am);
 
-        if (lastTask != null) {
+        if (lastTask != null && mRecentLastApp == true) {
             am.moveTaskToFront(lastTask.id, ActivityManager.MOVE_TASK_NO_USER_ACTION, animations.toBundle());
         }
     }
