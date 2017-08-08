@@ -146,6 +146,9 @@ public class ExpandableCardAdapter extends RecyclerView.Adapter<ExpandableCardAd
             holder.appIcon.setImageResource(android.R.drawable.sym_def_app_icon);
         }
 
+        if (card.appIconClickListener != null) {
+            holder.appIcon.setOnClickListener(card.appIconClickListener);
+        }
         if (card.appIconLongClickListener != null) {
             holder.appIcon.setOnLongClickListener(card.appIconLongClickListener);
         }
@@ -308,6 +311,7 @@ public class ExpandableCardAdapter extends RecyclerView.Adapter<ExpandableCardAd
         boolean customIcon = false;
         boolean favorite = false;
         float cornerRadius;
+        View.OnClickListener appIconClickListener;
         View.OnLongClickListener appIconLongClickListener;
         int cardBackgroundColor;
         Drawable custom;
