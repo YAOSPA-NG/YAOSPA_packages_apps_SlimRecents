@@ -77,7 +77,6 @@ import java.util.HashSet;
 import java.util.Set;
 
 import static android.app.ActivityManager.StackId.PINNED_STACK_ID;
-import static android.app.ActivityManager.StackId.RECENTS_STACK_ID;
 
 /**
  * Our main view controller which handles and construct most of the view
@@ -1001,10 +1000,10 @@ public class RecentPanelView {
 
             final List<ActivityManager.RecentTaskInfo> recentTasks =
                     mAm.getRecentTasksForUser(ActivityManager.getMaxRecentTasksStatic(),
-                    ActivityManager.RECENT_IGNORE_HOME_AND_RECENTS_STACK_TASKS
-                    | ActivityManager.RECENT_INGORE_PINNED_STACK_TASKS
-                    | ActivityManager.RECENT_IGNORE_UNAVAILABLE
-                    | ActivityManager.RECENT_INCLUDE_PROFILES,
+                    ActivityManager.RECENT_IGNORE_HOME_STACK_TASKS
+                        | ActivityManager.RECENT_INGORE_PINNED_STACK_TASKS
+                        | ActivityManager.RECENT_IGNORE_UNAVAILABLE
+                        | ActivityManager.RECENT_INCLUDE_PROFILES,
                     UserHandle.CURRENT.getIdentifier());
 
             final int numTasks = recentTasks.size();
@@ -1277,7 +1276,7 @@ public class RecentPanelView {
             for (int i = 0; i < tasks.size(); i++) {
                 ActivityManager.RunningTaskInfo task = tasks.get(i);
                 int stackId = task.stackId;
-                if (stackId != RECENTS_STACK_ID && stackId != PINNED_STACK_ID) {
+                if (stackId != PINNED_STACK_ID) {
                     return task;
                 }
             }
@@ -1356,9 +1355,9 @@ public class RecentPanelView {
         if (context == null) {
             return null;
         }
-        return getResizedBitmap(getThumbnail(
-                persistentTaskId, true, context), context,
-                scaleFactor, thumbnailHeight, thumbnailWidth);
+        final ActivityManager am = (ActivityManager)
+                context.getSystemService(Context.ACTIVITY_SERVICE);
+        return getResizedBitmap(getThumbnail(am, persistentTaskId), context, scaleFactor);
     }
 
     /**
@@ -1386,59 +1385,71 @@ public class RecentPanelView {
         return thumbnail;
     }
 
-    public static Bitmap getThumbnail(int taskId, boolean reducedResolution,
-            Context ctx) {
-        if (ActivityManager.ENABLE_TASK_SNAPSHOTS) {
-            try {
-                ActivityManager.TaskSnapshot snapshot = ActivityManager.getService()
-                        .getTaskSnapshot(taskId, reducedResolution);
-                if (snapshot != null) {
-                    return Bitmap.createHardwareBitmap(snapshot.getSnapshot());
-                }
-            } catch (RemoteException e) {
-                Log.w(TAG, "Failed to retrieve snapshot", e);
-            }
-            return null;
-        } else {
-            return getThumbnailOld(taskId, ctx);
+    public static Bitmap getThumbnail(ActivityManager activityManager, int taskId) {
+        ActivityManager.TaskThumbnail taskThumbnail = activityManager.getTaskThumbnail(taskId);
+        if (taskThumbnail == null) return null;
+
+        Bitmap thumbnail = taskThumbnail.mainThumbnail;
+        ParcelFileDescriptor descriptor = taskThumbnail.thumbnailFileDescriptor;
+        if (thumbnail == null && descriptor != null) {
+            thumbnail = BitmapFactory.decodeFileDescriptor(descriptor.getFileDescriptor(),
+                    null, sBitmapOptions);
         }
+        if (descriptor != null) {
+            try {
+                descriptor.close();
+            } catch (IOException e) {
+            }
+        }
+        return thumbnail;
     }
 
     // Resize and crop the task bitmap to the overlay values.
-    public static Bitmap getResizedBitmap(Bitmap source,
-            Context context, float scaleFactor, int thumbnailHeight, int thumbnailWidth) {
+    private static Bitmap getResizedBitmap(Bitmap source, Context context, float scaleFactor) {
         if (source == null || (source != null && source.isRecycled())) {
             return null;
         }
 
-        thumbnailWidth *= scaleFactor;
-        thumbnailHeight *= scaleFactor;
-        int h = source.getHeight();
+        final Resources res = context.getResources();
+        final int thumbnailWidth =
+                (int) (res.getDimensionPixelSize(
+                        R.dimen.recent_thumbnail_width) * scaleFactor);
+        final int thumbnailHeight =
+                (int) (res.getDimensionPixelSize(
+                        R.dimen.recent_thumbnail_height) * scaleFactor);
+
         int w = source.getWidth();
+        int h = source.getHeight();
+        Bitmap cropped = null;
+
         // Compute the scaling factors to fit the new height and width, respectively.
         // To cover the final image, the final scaling will be the bigger
         // of these two.
         final float xScale = (float) thumbnailWidth / w;
         final float yScale = (float) thumbnailHeight / h;
         final float scale = Math.max(xScale, yScale);
+
         // Now get the size of the source bitmap when scaled
         final float scaledWidth = scale * w;
         final float scaledHeight = scale * h;
+
         // Let's find out the left coordinates if the scaled bitmap
         // should be centered in the new size given by the parameters
         final float left = (thumbnailWidth - scaledWidth) / 2;
 
-        final Canvas canvas = new Canvas();
-        canvas.setHwBitmapsInSwModeEnabled(true);
-        canvas.setDrawFilter(new PaintFlagsDrawFilter(Paint.ANTI_ALIAS_FLAG,
-                        Paint.FILTER_BITMAP_FLAG));
-        final Bitmap bmp = Bitmap.createBitmap(thumbnailWidth, thumbnailHeight,
-                Config.ARGB_8888);
-        canvas.setBitmap(bmp);
+        // The target rectangle for the new, scaled version of the source bitmap
         final RectF targetRect = new RectF(left, 0.0f, left + scaledWidth, scaledHeight);
-        canvas.drawBitmap(source, null, targetRect, null);
 
-        return bmp;
+        final Paint paint = new Paint(Paint.FILTER_BITMAP_FLAG);
+        paint.setAntiAlias(true);
+
+        // Finally, we create a new bitmap of the specified size and draw our new,
+        // scaled bitmap onto it.
+        final Bitmap dest = Bitmap.createBitmap(thumbnailWidth, thumbnailHeight, Config.ARGB_8888);
+        final Canvas canvas = new Canvas(dest);
+        canvas.drawBitmap(source, null, targetRect, paint);
+
+        return dest;
     }
 
     interface DownloaderCallback {

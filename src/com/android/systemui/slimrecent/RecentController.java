@@ -72,13 +72,12 @@ import android.widget.RelativeLayout;
 import android.text.TextUtils;
 
 import com.android.systemui.R;
+import com.android.systemui.SystemUIApplication;
 import com.android.systemui.recents.misc.Utilities;
 import com.android.systemui.recents.misc.SystemServicesProxy;
-import com.android.systemui.statusbar.CommandQueue;
-import com.android.systemui.SysUiServiceProvider;
-import com.android.systemui.statusbar.phone.StatusBar;
+import com.android.systemui.statusbar.phone.PhoneStatusBar;
 
-import static com.android.systemui.statusbar.phone.StatusBar.SYSTEM_DIALOG_REASON_RECENT_APPS;
+import static com.android.systemui.statusbar.phone.PhoneStatusBar.SYSTEM_DIALOG_REASON_RECENT_APPS;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -95,7 +94,7 @@ import java.util.Locale;
  * are handled here.
  */
 public class RecentController implements RecentPanelView.OnExitListener,
-        RecentPanelView.OnTasksLoadedListener, CommandQueue.Callbacks {
+        RecentPanelView.OnTasksLoadedListener {
 
     private static final String TAG = "SlimRecentsController";
 
@@ -267,16 +266,6 @@ public class RecentController implements RecentPanelView.OnExitListener,
         mContext.registerComponentCallbacks(new ComponentCallback());
     }
 
-    public void removeSbCallbacks() {
-        SysUiServiceProvider.getComponent(mContext, CommandQueue.class)
-                .removeCallbacks(this);
-    }
-
-    public void addSbCallbacks() {
-        SysUiServiceProvider.getComponent(mContext, CommandQueue.class)
-                .addCallbacks(this);
-    }
-
     public void evictAllCaches() {
         ThumbnailsCacheController.getInstance(mContext).clearCache();
         CacheController.getInstance(mContext, null).clearCache();
@@ -392,21 +381,12 @@ public class RecentController implements RecentPanelView.OnExitListener,
         return layoutDirection;
     }
 
-    @Override
-    public void toggleRecentApps() {
-        if (!mIsUserSetup) {
-            return;
-        }
-        toggle();
-    }
-
     /**
      * External call. Toggle recents panel.
      */
-    private void toggle() {
-        int ld = getLayoutDirection();
-        if (mLayoutDirection != ld) {
-            mLayoutDirection = ld;
+    public void toggleRecents(Display display, int layoutDirection, View statusBarView) {
+        if (mLayoutDirection != layoutDirection) {
+            mLayoutDirection = layoutDirection;
             setGravityAndImageResources();
         }
         if (mAnimationState == ANIMATION_STATE_NONE) {
@@ -421,7 +401,7 @@ public class RecentController implements RecentPanelView.OnExitListener,
                     // Due that mIsToggled is true preloader will open the recent
                     // screen as soon the preload is finished and the listener
                     // notifies us that we are ready.
-                    preloadRecentApps();
+                    preloadRecentTasksList();
                 }
             } else {
                 openLastAppPanelToggle();
@@ -433,28 +413,22 @@ public class RecentController implements RecentPanelView.OnExitListener,
     /**
      * External call. Preload recent tasks.
      */
-    @Override
-    public void preloadRecentApps() {
+    public void preloadRecentTasksList() {
         if (!mIsUserSetup) {
             return;
         }
-        // Post this to ensure that we don't block the touch feedback
-        // on the nav bar button which triggers this.
-        mHandler.post(() -> {
-            if (mRecentPanelView != null) {
-                mIsPreloaded = true;
-                setSystemUiVisibilityFlags();
-                mRecentPanelView.setCancelledByUser(false);
-                mRecentPanelView.loadTasks();
-            }
-        });
+        if (mRecentPanelView != null) {
+            mIsPreloaded = true;
+            setSystemUiVisibilityFlags();
+            mRecentPanelView.setCancelledByUser(false);
+            mRecentPanelView.loadTasks();
+        }
     }
 
     /**
      * External call. Cancel preload recent tasks.
      */
-    @Override
-    public void cancelPreloadRecentApps() {
+    public void cancelPreloadingRecentTasksList() {
         if (!mIsUserSetup) {
             return;
         }
@@ -464,7 +438,7 @@ public class RecentController implements RecentPanelView.OnExitListener,
         }
     }
 
-    protected void closeRecents() {
+    public void closeRecents() {
         hideRecents(false);
     }
 
@@ -544,12 +518,6 @@ public class RecentController implements RecentPanelView.OnExitListener,
     // Returns if panel is currently showing.
     public boolean isShowing() {
         return mIsShowing;
-    }
-
-    @Override
-    public void hideRecentApps(boolean triggeredFromAltTab,
-            boolean triggeredFromHomeKey) {
-        hideRecents(triggeredFromHomeKey);
     }
 
     // Hide the recent window.
@@ -994,11 +962,11 @@ public class RecentController implements RecentPanelView.OnExitListener,
 
     private List<ActivityManager.RecentTaskInfo> getRecentTasks() {
         return mAm.getRecentTasksForUser(ActivityManager.getMaxRecentTasksStatic(),
-                ActivityManager.RECENT_IGNORE_HOME_AND_RECENTS_STACK_TASKS
-                | ActivityManager.RECENT_INGORE_DOCKED_STACK_TOP_TASK
-                | ActivityManager.RECENT_INGORE_PINNED_STACK_TASKS
-                | ActivityManager.RECENT_IGNORE_UNAVAILABLE
-                | ActivityManager.RECENT_INCLUDE_PROFILES,
+                ActivityManager.RECENT_IGNORE_HOME_STACK_TASKS
+                    | ActivityManager.RECENT_INGORE_DOCKED_STACK_TOP_TASK
+                    | ActivityManager.RECENT_INGORE_PINNED_STACK_TASKS
+                    | ActivityManager.RECENT_IGNORE_UNAVAILABLE
+                    | ActivityManager.RECENT_INCLUDE_PROFILES,
                 UserHandle.CURRENT.getIdentifier());
     }
 
@@ -1116,11 +1084,15 @@ public class RecentController implements RecentPanelView.OnExitListener,
     }
 
     protected void pinApp(int persistentTaskId) {
-        StatusBar statusBar =
-                SysUiServiceProvider.getComponent(mContext, StatusBar.class);
-        if (statusBar != null) {
-            statusBar.showScreenPinningRequest(persistentTaskId, false);
-            hideRecents(false);
+        Context appContext = mContext.getApplicationContext();
+        if (appContext == null) appContext = mContext;
+        if (appContext instanceof SystemUIApplication) {
+            SystemUIApplication app = (SystemUIApplication) appContext;
+            PhoneStatusBar statusBar = app.getComponent(PhoneStatusBar.class);
+            if (statusBar != null) {
+                statusBar.showScreenPinningRequest(persistentTaskId, false);
+                hideRecents(false);
+            }
         }
     }
 
@@ -1181,7 +1153,7 @@ public class RecentController implements RecentPanelView.OnExitListener,
             switch (level) {
                 case ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN:
                     // Stop the loader immediately when the UI is no longer visible
-                    cancelPreloadRecentApps();
+                    cancelPreloadingRecentTasksList();
                     break;
                 case ComponentCallbacks2.TRIM_MEMORY_RUNNING_MODERATE:
                 case ComponentCallbacks2.TRIM_MEMORY_BACKGROUND:
