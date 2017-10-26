@@ -268,11 +268,8 @@ public class RecentPanelView {
                         clearOptions();
                         return;
                     } else if (id == OPTION_KILL) {
-                        if (RecentController.killAppLongClick(
-                                mContext, task.packageName, task.persistentTaskId)) {
-                            mCardAdapter.removeCard(position);
-                            removeApplication(task);
-                        }
+                        mCardAdapter.removeCard(position);
+                        removeApplication(task);
                         return;
                     }
                     if (intent != null) {

@@ -1108,32 +1108,6 @@ public class RecentController implements RecentPanelView.OnExitListener,
         }
     }
 
-    protected static boolean killAppLongClick(Context context,
-            String packageName, int persistentTaskId) {
-        boolean killed = false;
-        if (context.checkCallingOrSelfPermission(
-                android.Manifest.permission.FORCE_STOP_PACKAGES)
-                == PackageManager.PERMISSION_GRANTED) {
-            if (packageName != null) {
-                try {
-                    ActivityManagerNative.getDefault().forceStopPackage(
-                            packageName, UserHandle.USER_CURRENT);
-                    killed = true;
-                } catch (RemoteException e) {
-                    killed = false;
-                }
-                if (killed) {
-                    ActivityManager am = (ActivityManager)
-                            context.getSystemService(Context.ACTIVITY_SERVICE);
-                    if (am != null) {
-                        am.removeTask(persistentTaskId);
-                    }
-                }
-            }
-        }
-        return killed;
-    }
-
     /*
      * By default, if you open app A, then app B, then app A again (with double tap or
      * from recents panel), pressing BACK button will go back from app A to app B
