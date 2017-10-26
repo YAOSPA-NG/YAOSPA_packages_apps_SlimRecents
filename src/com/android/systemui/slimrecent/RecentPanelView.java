@@ -100,9 +100,8 @@ public class RecentPanelView {
     public static final int EXPANDED_STATE_TOPTASK   = 8;
 
     public static final int EXPANDED_MODE_AUTO    = 0;
-    private static final int EXPANDED_MODE_NEVER = 1;
-    // mode_always not working well yet, thumbs refresh needs to be improved
-    // private static final int EXPANDED_MODE_ALWAYS  = 2;
+    private static final int EXPANDED_MODE_ALWAYS = 1;
+    private static final int EXPANDED_MODE_NEVER  = 2;
 
     private static final int MENU_APP_DETAILS_ID   = 0;
     private static final int MENU_APP_PLAYSTORE_ID = 1;
@@ -1130,9 +1129,9 @@ public class RecentPanelView {
                         // The first tasks are always added to the task list.
                         addCard(item, false);
                     } else {
-                        /*if (mExpandedMode == EXPANDED_MODE_ALWAYS) {
+                        if (mExpandedMode == EXPANDED_MODE_ALWAYS) {
                             oldState |= EXPANDED_STATE_BY_SYSTEM;
-                        }*/
+                        }
                         item.setExpandedState(oldState);
                         // Favorite tasks are added next. Non favorite
                         // we hold for a short time in an extra list.
