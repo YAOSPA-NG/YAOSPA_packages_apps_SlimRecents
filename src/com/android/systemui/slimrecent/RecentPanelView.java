@@ -139,6 +139,8 @@ public class RecentPanelView {
     private float mScaleFactor;
     private int mExpandedMode = EXPANDED_MODE_AUTO;
     private boolean mIsScreenPinningEnabled;
+    private boolean mShowTopTask;
+    private boolean mOnlyShowRunningTasks;
     //private static int mOneHandMode:
     private static int mCardColor = 0x0ffffff;
     private int mFirstExpandedItems = 2;
@@ -875,6 +877,14 @@ public class RecentPanelView {
         mExpandedMode = mode;
     }
 
+    protected void setShowTopTask(boolean enabled) {
+        mShowTopTask = enabled;
+    }
+
+    protected void setShowOnlyRunningTasks(boolean enabled) {
+        mOnlyShowRunningTasks = enabled;
+    }
+
     protected boolean hasFavorite() {
         int count = mCardAdapter.getItemCount();
         for (int i = 0; i < count; i++) {
@@ -1006,7 +1016,12 @@ public class RecentPanelView {
                         | ActivityManager.RECENT_INCLUDE_PROFILES,
                     UserHandle.CURRENT.getIdentifier());
 
+            final ActivityManager am = (ActivityManager)
+                    mContext.getSystemService(Context.ACTIVITY_SERVICE);
+            final List<ActivityManager.RunningTaskInfo> runningTasks =
+                   am.getRunningTasks(Integer.MAX_VALUE);
             final int numTasks = recentTasks.size();
+            int newSize = numTasks;
 
             for (int i = 0; i < numTasks; i++) {
 
@@ -1039,6 +1054,20 @@ public class RecentPanelView {
                     mController.isTopTaskInForeground(topTask);
                 }
 
+                if (mOnlyShowRunningTasks) {
+                    boolean isRunning = false;
+                    for (ActivityManager.RunningTaskInfo task : runningTasks) {
+                        if (recentInfo.baseIntent.getComponent().getPackageName().equals(
+                                task.baseActivity.getPackageName())) {
+                            isRunning = true;
+                        }
+                    }
+                    if (!isRunning) {
+                        newSize--;
+                        continue;
+                    }
+                 }
+
                 TaskDescription item = createTaskDescription(recentInfo.id,
                         recentInfo.persistentId, recentInfo.baseIntent,
                         recentInfo.origActivity, recentInfo.description,
@@ -1066,14 +1095,20 @@ public class RecentPanelView {
                 }
 
                 if (topTask) {
-                    // User want to see actual running task. Set it here
-                    int oldState = getExpandedState(item);
-                    if ((oldState & EXPANDED_STATE_TOPTASK) == 0) {
-                        oldState |= EXPANDED_STATE_TOPTASK;
+                    if (mShowTopTask || mIsScreenPinningEnabled) {
+                        // User want to see actual running task. Set it here
+                        int oldState = getExpandedState(item);
+                        if ((oldState & EXPANDED_STATE_TOPTASK) == 0) {
+                            oldState |= EXPANDED_STATE_TOPTASK;
+                        }
+                        item.setExpandedState(oldState);
+                        addCard(item, true);
+                        mFirstTask = item;
+                    } else {
+                        // Skip the first task for our list but save it for later use.
+                        mFirstTask = item;
+                        newSize--;
                     }
-                    item.setExpandedState(oldState);
-                    addCard(item, true);
-                    mFirstTask = item;
                 } else {
                     // FirstExpandedItems value forces to show always the app screenshot
                     // if the old state is not known and the user has set expanded mode to auto.
