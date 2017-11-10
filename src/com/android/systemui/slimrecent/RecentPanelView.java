@@ -174,7 +174,6 @@ public class RecentPanelView {
     private class RecentCard extends ExpandableCard {
 
         TaskDescription task;
-        int position;
 
         private RecentCard(TaskDescription task) {
             super(task.getLabel(), null);
@@ -206,7 +205,7 @@ public class RecentPanelView {
                 public boolean onLongClick(View v) {
                     favorite = !favorite;
                     handleFavoriteEntry(task);
-                    mCardAdapter.notifyItemChanged(position);
+                    mCardAdapter.notifyItemChanged(index);
                     return true;
                 }
             };
@@ -268,7 +267,7 @@ public class RecentPanelView {
                         clearOptions();
                         return;
                     } else if (id == OPTION_KILL) {
-                        mCardAdapter.removeCard(position);
+                        mCardAdapter.removeCard(index);
                         removeApplication(task);
                         return;
                     }
@@ -1162,11 +1161,7 @@ public class RecentPanelView {
 
             final int index = mCounter;
 
-            // No old card was present to update....so add a new one.
-            if (card == null) {
-                card = new RecentCard(task);
-                card.position = index;
-            }
+            card = new RecentCard(task);
 
             final ExpandableCard ec = card;
 
